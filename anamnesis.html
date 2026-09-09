@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anamnesis — Patient Case Documentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EFF4F4;
+    --surface:#FFFFFF;
+    --surface-alt:#E4EDED;
+    --ink:#132B2C;
+    --muted:#5B7477;
+    --muted-2:#89A0A2;
+    --primary:#0E5F5C;
+    --primary-dark:#0A4442;
+    --primary-light:#DDEBEA;
+    --accent:#B0463C;
+    --accent-light:#F5DEDB;
+    --border:#D5E2E1;
+    --success:#2E7D5B;
+    --line:#C7D8D7;
+    --shadow: 0 1px 2px rgba(19,43,44,0.04), 0 8px 24px -12px rgba(19,43,44,0.14);
+    --radius: 3px;
+    --font-serif:'Spectral', Georgia, serif;
+    --font-sans:'Inter', -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-sans);
+    font-size:14.5px;
+    line-height:1.55;
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+
+  ::selection{ background:var(--primary-light); color:var(--primary-dark); }
+
+  /* ---------- particle canvas ---------- */
+  #particleCanvas{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+    pointer-events:none;
+  }
+
+  /* ---------- app shell ---------- */
+  .app{
+    position:relative;
+    z-index:1;
+    display:grid;
+    grid-template-columns: 272px 1fr;
+    min-height:100vh;
+  }
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    background:rgba(255,255,255,0.86);
+    backdrop-filter: blur(6px);
+    border-right:1px solid var(--border);
+    padding:26px 22px 22px;
+    display:flex;
+    flex-direction:column;
+    gap:26px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .brand-mark{ flex:none; }
+  .brand-text h1{
+    font-family:var(--font-serif);
+    font-weight:600;
+    font-size:21px;
+    margin:0;
+    letter-spacing:0.2px;
+    color:var(--primary-dark);
+  }
+  .brand-text p{
+    margin:1px 0 0;
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:0.03em;
+  }
+
+  .patient-chip{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:13px 14px;
+    box-shadow:var(--shadow);
+  }
+  .patient-chip .chip-label{
+    font-size:10.5px;
+    color:var(--muted-2);
+    letter-spacing:0.06em;
+    margin-bottom:6px;
+  }
+  .patient-chip .chip-name{
+    font-family:var(--font-serif);
+    font-size:16.5px;
+    font-weight:600;
+    color:var(--ink);
+    min-height:20px;
+  }
+  .patient-chip .chip-meta{
+    display:flex;
+    gap:10px;
+    margin-top:6px;
+    font-size:12px;
+    color:var(--muted);
+    font-family:var(--font-mono);
+  }
+
+  .progress-track{
+    height:5px;
+    border-radius:4px;
+    background:var(--surface-alt);
+    overflow:hidden;
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,var(--primary),#1B8A82);
+    border-radius:4px;
+    transition:width .5s cubic-bezier(.4,0,.2,1);
+  }
+  .progress-label{
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+  .progress-label span:last-child{ font-family:var(--font-mono); color:var(--primary-dark); font-weight:600; }
+
+  .steps-nav{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    flex:1;
+  }
+  .step-item{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:9px 10px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    border:1px solid transparent;
+    transition:background .15s ease;
+    position:relative;
+  }
+  .step-item:hover{ background:var(--surface-alt); }
+  .step-item.active{
+    background:var(--surface);
+    border-color:var(--border);
+    box-shadow:var(--shadow);
+  }
+  .step-num{
+    flex:none;
+    width:22px; height:22px;
+    border-radius:50%;
+    border:1.5px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--muted);
+    background:var(--surface);
+  }
+  .step-item.active .step-num{
+    border-color:var(--primary);
+    color:var(--primary-dark);
+    font-weight:600;
+  }
+  .step-item.done .step-num{
+    background:var(--primary);
+    border-color:var(--primary);
+    color:#fff;
+  }
+  .step-item.done .step-num::after{ content:"✓"; }
+  .step-item.done .step-num{ font-size:0; }
+  .step-item.done .step-num::after{ font-size:11px; }
+  .step-text .step-title{ font-size:13px; font-weight:500; color:var(--ink); }
+  .step-text .step-sub{ font-size:10.5px; color:var(--muted-2); margin-top:1px; }
+
+  .sidebar-foot{
+    font-size:10.5px;
+    color:var(--muted-2);
+    border-top:1px solid var(--border);
+    padding-top:12px;
+    line-height:1.5;
+  }
+
+  /* ---------- main ---------- */
+  .main{
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+
+  .topbar{
+    position:relative;
+    background:linear-gradient(180deg, var(--primary-dark), var(--primary) 130%);
+    color:#EAF4F3;
+    padding:30px 40px 22px;
+    overflow:hidden;
+  }
+  .topbar-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    position:relative;
+    z-index:2;
+  }
+  .topbar-eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    color:#9FCFC9;
+    margin-bottom:6px;
+  }
+  .topbar h2{
+    font-family:var(--font-serif);
+    font-size:26px;
+    font-weight:600;
+    margin:0;
+  }
+  .topbar-meta{
+    display:flex;
+    gap:18px;
+    margin-top:8px;
+    font-size:12px;
+    color:#BFE0DC;
+  }
+  .topbar-meta b{ color:#fff; font-weight:600; }
+  .case-id{
+    font-family:var(--font-mono);
+    font-size:12px;
+    background:rgba(255,255,255,0.1);
+    border:1px solid rgba(255,255,255,0.18);
+    padding:6px 11px;
+    border-radius:var(--radius);
+    color:#DFF3F0;
+    white-space:nowrap;
+  }
+  .ecg-wrap{
+    position:absolute;
+    left:0; right:0; bottom:0;
+    height:46px;
+    opacity:0.55;
+  }
+  .ecg-wrap svg{ width:100%; height:100%; display:block; }
+  .ecg-path{
+    fill:none;
+    stroke:#7FE0D3;
+    stroke-width:1.6;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+    stroke-dasharray: 340;
+    stroke-dashoffset: 0;
+    animation: ecgmove 3.2s linear infinite;
+  }
+  @keyframes ecgmove{
+    from{ stroke-dashoffset: 680; }
+    to{ stroke-dashoffset: 0; }
+  }
+
+  .content{
+    flex:1;
+    padding:34px 40px 30px;
+    max-width:840px;
+  }
+
+  .panel{ display:none; animation: rise .35s ease; }
+  .panel.active{ display:block; }
+  @keyframes rise{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  .panel-head{ margin-bottom:22px; }
+  .panel-head .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--primary);
+    letter-spacing:0.05em;
+    margin-bottom:4px;
+  }
+  .panel-head h3{
+    font-family:var(--font-serif);
+    font-size:23px;
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  .panel-head p{ margin:0; color:var(--muted); font-size:13px; max-width:60ch; }
+
+  .field-grid{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap:16px 18px;
+  }
+  .field-grid.cols-3{ grid-template-columns: repeat(3, 1fr); }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field.span-2{ grid-column: span 2; }
+  .field label{
+    font-size:12px;
+    font-weight:500;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    gap:5px;
+  }
+  .field label .req{ color:var(--accent); font-size:12px; }
+  .hint{ font-size:11px; color:var(--muted-2); }
+
+  input[type=text], input[type=number], input[type=date], input[type=tel], select, textarea{
+    font-family:var(--font-sans);
+    font-size:13.5px;
+    color:var(--ink);
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:9px 11px;
+    outline:none;
+    transition:border-color .15s ease, box-shadow .15s ease;
+    width:100%;
+  }
+  input:focus, select:focus, textarea:focus{
+    border-color:var(--primary);
+    box-shadow:0 0 0 3px var(--primary-light);
+  }
+  textarea{ resize:vertical; min-height:76px; line-height:1.55; }
+  select{ appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%235B7477' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 11px center; padding-right:30px; }
+
+  .inline-two{ display:flex; gap:8px; }
+  .inline-two input{ flex:1; }
+  .inline-two select{ width:92px; flex:none; }
+
+  fieldset{ border:none; padding:0; margin:0; }
+  legend{
+    font-size:12px; font-weight:500; color:var(--ink); margin-bottom:8px; padding:0;
+  }
+  .check-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:8px 14px;
+  }
+  .check-item{
+    display:flex; align-items:center; gap:8px;
+    font-size:13px;
+    color:var(--ink);
+    cursor:pointer;
+    padding:7px 9px;
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    background:var(--surface);
+    transition:all .12s ease;
+    user-select:none;
+  }
+  .check-item:hover{ border-color:var(--muted-2); }
+  .check-item input{ accent-color:var(--primary); width:14px; height:14px; margin:0; }
+  .check-item.checked{ background:var(--primary-light); border-color:var(--primary); color:var(--primary-dark); font-weight:500; }
+
+  .section-divider{
+    height:1px;
+    background:var(--border);
+    margin:26px 0;
+  }
+
+  /* severity slider */
+  .severity-wrap{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px 18px 14px;
+  }
+  .severity-top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  .severity-value{ font-family:var(--font-serif); font-size:30px; font-weight:600; }
+  .severity-desc{ font-size:12.5px; color:var(--muted); }
+  input[type=range]{
+    width:100%; -webkit-appearance:none; height:6px; border-radius:4px;
+    background: linear-gradient(90deg, #2E7D5B, #D8B24C 50%, var(--accent));
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+    background:#fff; border:3px solid var(--primary-dark); cursor:pointer; margin-top:-6px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.25);
+  }
+  .severity-scale{ display:flex; justify-content:space-between; font-size:10px; color:var(--muted-2); margin-top:4px; font-family:var(--font-mono); }
+
+  /* dynamic rows */
+  .dyn-table{ width:100%; border-collapse:collapse; margin-top:4px; }
+  .dyn-table th{
+    text-align:left; font-size:11px; color:var(--muted); font-weight:500;
+    padding:0 8px 6px; border-bottom:1px solid var(--border);
+  }
+  .dyn-table td{ padding:5px 8px 5px 0; vertical-align:middle; }
+  .dyn-table input{ padding:7px 9px; font-size:13px; }
+  .row-remove{
+    background:none; border:none; color:var(--muted-2); cursor:pointer;
+    width:26px; height:26px; border-radius:50%; font-size:15px; line-height:1;
+    transition:all .12s ease;
+  }
+  .row-remove:hover{ background:var(--accent-light); color:var(--accent); }
+  .add-row-btn{
+    margin-top:10px;
+    background:none;
+    border:1px dashed var(--muted-2);
+    color:var(--primary-dark);
+    font-size:12.5px;
+    font-weight:500;
+    padding:8px 13px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .add-row-btn:hover{ border-color:var(--primary); background:var(--primary-light); }
+
+  /* allergy tags */
+  .tag-input-wrap{
+    display:flex; flex-wrap:wrap; gap:7px; align-items:center;
+    border:1px solid var(--border); border-radius:var(--radius); background:var(--surface);
+    padding:8px 10px; min-height:44px;
+  }
+  .tag{
+    display:flex; align-items:center; gap:6px;
+    background:var(--accent-light); color:var(--accent);
+    border-radius:14px; padding:4px 6px 4px 11px; font-size:12.5px; font-weight:500;
+  }
+  .tag button{ background:none; border:none; color:var(--accent); cursor:pointer; font-size:13px; padding:2px; }
+  .tag-input-wrap input{ border:none; flex:1; min-width:120px; padding:4px 2px; box-shadow:none !important; }
+
+  /* vitals + BMI */
+  .vitals-panel{
+    display:grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap:20px;
+    align-items:start;
+  }
+  .pulse-card{
+    background:var(--primary-dark);
+    color:#E7F4F2;
+    border-radius:var(--radius);
+    padding:18px;
+    position:relative;
+    overflow:hidden;
+  }
+  .pulse-card .pc-label{ font-size:11px; color:#9FCFC9; letter-spacing:0.05em; font-family:var(--font-mono); }
+  .pulse-card .pc-value{ font-family:var(--font-serif); font-size:34px; font-weight:600; margin-top:2px; display:flex; align-items:baseline; gap:6px; }
+  .pulse-card .pc-value small{ font-size:14px; color:#9FCFC9; font-family:var(--font-sans); }
+  .pulse-svg{ width:100%; height:44px; margin-top:8px; }
+  .pulse-svg path{ fill:none; stroke:#5BD8C4; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+  .bmi-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px;
+  }
+  .bmi-top{ display:flex; justify-content:space-between; align-items:baseline; }
+  .bmi-value{ font-family:var(--font-serif); font-size:28px; font-weight:600; }
+  .bmi-badge{
+    font-size:11px; font-weight:600; padding:4px 10px; border-radius:12px;
+    background:var(--surface-alt); color:var(--muted);
+  }
+  .bmi-badge.under{ background:#FDF1D8; color:#8A6416; }
+  .bmi-badge.normal{ background:#DFF1E6; color:var(--success); }
+  .bmi-badge.over{ background:#FBE6DA; color:#A85A1F; }
+  .bmi-badge.obese{ background:var(--accent-light); color:var(--accent); }
+  .bmi-bar{ height:6px; border-radius:4px; background:var(--surface-alt); margin-top:12px; overflow:hidden; position:relative; }
+  .bmi-marker{ position:absolute; top:-3px; width:2px; height:12px; background:var(--ink); transition:left .3s ease; }
+  .bmi-scale-labels{ display:flex; justify-content:space-between; font-size:9.5px; color:var(--muted-2); margin-top:5px; font-family:var(--font-mono); }
+
+  /* footer nav */
+  .footer-nav{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 40px 26px;
+    border-top:1px solid var(--border);
+    background:rgba(255,255,255,0.6);
+  }
+  .btn{
+    font-family:var(--font-sans); font-size:13px; font-weight:600;
+    padding:10px 20px; border-radius:var(--radius); cursor:pointer; border:1px solid transparent;
+    display:inline-flex; align-items:center; gap:7px;
+    transition:all .15s ease;
+  }
+  .btn-primary{ background:var(--primary); color:#fff; }
+  .btn-primary:hover{ background:var(--primary-dark); }
+  .btn-ghost{ background:none; border-color:var(--border); color:var(--ink); }
+  .btn-ghost:hover{ border-color:var(--muted-2); background:var(--surface); }
+  .btn-text{ background:none; border:none; color:var(--muted); font-weight:500; }
+  .btn-text:hover{ color:var(--primary-dark); }
+  .footer-left, .footer-right{ display:flex; gap:10px; }
+
+  /* toast */
+  #toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--primary-dark); color:#fff; font-size:13px; font-weight:500;
+    padding:11px 20px; border-radius:var(--radius); box-shadow:0 10px 30px -8px rgba(0,0,0,0.4);
+    opacity:0; pointer-events:none; transition:all .3s ease; z-index:50;
+    display:flex; align-items:center; gap:8px;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* summary / review */
+  .summary-sheet{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:30px 34px;
+  }
+  .summary-sheet h4{
+    font-family:var(--font-serif); font-size:16px; color:var(--primary-dark);
+    margin:22px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--border);
+  }
+  .summary-sheet h4:first-child{ margin-top:0; }
+  .sum-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px 20px; }
+  .sum-item .k{ font-size:10.5px; color:var(--muted-2); letter-spacing:0.03em; }
+  .sum-item .v{ font-size:13.5px; color:var(--ink); font-weight:500; margin-top:1px; }
+  .sum-item .v:empty::after, .sum-item .v.empty::after{ content:"—"; color:var(--muted-2); font-weight:400; }
+  .sum-text{ font-size:13.5px; line-height:1.6; color:var(--ink); white-space:pre-wrap; }
+  .sum-tags{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+  .sum-tags span{ background:var(--surface-alt); color:var(--ink); font-size:12px; padding:3px 9px; border-radius:11px; }
+
+  .completion-banner{
+    display:flex; align-items:center; gap:14px;
+    background:var(--primary-light); border:1px solid #BFE0DC; border-radius:var(--radius);
+    padding:14px 18px; margin-bottom:22px;
+  }
+  .completion-banner .cb-ring{ flex:none; }
+  .completion-banner .cb-text b{ display:block; font-size:14px; color:var(--primary-dark); font-family:var(--font-serif); }
+  .completion-banner .cb-text span{ font-size:12px; color:var(--muted); }
+
+  @media print{
+    .sidebar, .topbar, .footer-nav, #toast{ display:none !important; }
+    .app{ display:block; }
+    .content{ max-width:100%; padding:0; }
+    body{ background:#fff; }
+    .panel{ display:none !important; }
+    #panel-7{ display:block !important; }
+    .summary-sheet{ border:none; padding:0; }
+  }
+
+  @media (max-width: 900px){
+    .app{ grid-template-columns:1fr; }
+    .sidebar{ position:relative; height:auto; flex-direction:row; flex-wrap:wrap; }
+    .steps-nav{ display:none; }
+    .content{ padding:24px 20px; }
+    .topbar{ padding:24px 20px 18px; }
+    .field-grid, .field-grid.cols-3{ grid-template-columns:1fr; }
+    .check-grid{ grid-template-columns:repeat(2,1fr); }
+    .vitals-panel{ grid-template-columns:1fr; }
+    .sum-grid{ grid-template-columns:repeat(2,1fr); }
+    .footer-nav{ padding:14px 18px 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .ecg-path{ animation:none; }
+    .panel{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="particleCanvas"></canvas>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" width="34" height="34" viewBox="0 0 34 34" fill="none">
+        <circle cx="17" cy="17" r="16" stroke="#0E5F5C" stroke-width="1.4" opacity="0.35"/>
+        <path d="M5 18h5l2-7 3 13 2.5-9 1.5 5.5h10" stroke="#0E5F5C" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="brand-text">
+        <h1>Anamnesis</h1>
+        <p>Structured case documentation</p>
+      </div>
+    </div>
+
+    <div class="patient-chip">
+      <div class="chip-label">CURRENT PATIENT</div>
+      <div class="chip-name" id="chipName">Untitled case</div>
+      <div class="chip-meta">
+        <span id="chipAge">Age —</span>
+        <span id="chipSex">Sex —</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label"><span>Documentation progress</span><span id="progressPct">0%</span></div>
+    </div>
+
+    <nav class="steps-nav" id="stepsNav"></nav>
+
+    <div class="sidebar-foot">
+      Case data lives in this session only.<br>Use Export to keep a copy.
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-row">
+        <div>
+          <div class="topbar-eyebrow" id="stepEyebrow">STEP 1 OF 7</div>
+          <h2 id="stepHeading">Patient demographics</h2>
+          <div class="topbar-meta">
+            <span>Visit date: <b id="metaDate">—</b></span>
+            <span>Attending: <b>Dr. —</b></span>
+          </div>
+        </div>
+        <div class="case-id" id="caseIdBadge">CASE #—</div>
+      </div>
+      <div class="ecg-wrap">
+        <svg viewBox="0 0 700 46" preserveAspectRatio="none">
+          <path class="ecg-path" d="M0,23 L60,23 L80,23 L92,8 L104,40 L116,15 L128,23 L180,23 L200,23 L212,10 L224,36 L236,17 L248,23 L300,23 L320,23 L332,8 L344,40 L356,15 L368,23 L420,23 L440,23 L452,10 L464,36 L476,17 L488,23 L540,23 L560,23 L572,8 L584,40 L596,15 L608,23 L660,23 L680,23 L692,10 L700,23" />
+        </svg>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- STEP 1 — DEMOGRAPHICS -->
+      <section class="panel active" id="panel-1">
+        <div class="panel-head">
+          <div class="eyebrow">01 · REGISTRATION</div>
+          <h3>Patient demographics</h3>
+          <p>Basic identifying details. This information heads every printed record for this case.</p>
+        </div>
+        <div class="field-grid">
+          <div class="field span-2">
+            <label>Full name <span class="req">*</span></label>
+            <input type="text" id="f-name" placeholder="e.g. Meera Anand" oninput="onDemoChange()">
+          </div>
+          <div class="field">
+            <label>Age <span class="req">*</span></label>
+            <input type="number" id="f-age" min="0" max="130" placeholder="Years" oninput="onDemoChange()">
+          </div>
+          <div class="field">
+            <label>Sex <span class="req">*</span></label>
+            <select id="f-sex" onchange="onDemoChange()">
+              <option value="">Select</option>
+              <option>Female</option>
+              <option>Male</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Patient ID</label>
+            <input type="text" id="f-id" placeholder="Auto-generated" readonly>
+          </div>
+          <div class="field">
+            <label>Visit date</label>
+            <input type="date" id="f-date" onchange="onDemoChange()">
+          </div>
+          <div class="field">
+            <label>Contact number</label>
+            <input type="tel" id="f-contact" placeholder="+91 ">
+          </div>
+          <div class="field">
+            <label>Occupation</label>
+            <input type="text" id="f-occupation" placeholder="e.g. Schoolteacher">
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 2 — CHIEF COMPLAINT / HPI -->
+      <section class="panel" id="panel-2">
+        <div class="panel-head">
+          <div class="eyebrow">02 · PRESENTING COMPLAINT</div>
+          <h3>Chief complaint &amp; history of present illness</h3>
+          <p>Capture the complaint in the patient's own words, then its timeline and character.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field span-2">
+            <label>Chief complaint <span class="req">*</span></label>
+            <textarea id="f-cc" placeholder="e.g. Fever and dry cough for 4 days" oninput="onDemoChange()"></textarea>
+          </div>
+          <div class="field">
+            <label>Onset</label>
+            <select id="f-onset"><option value="">Select</option><option>Sudden</option><option>Gradual</option></select>
+          </div>
+          <div class="field">
+            <label>Duration</label>
+            <div class="inline-two">
+              <input type="number" id="f-duration" min="0" placeholder="4">
+              <select id="f-duration-unit"><option>Days</option><option>Weeks</option><option>Months</option><option>Years</option><option>Hours</option></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <fieldset>
+          <legend>Character of complaint</legend>
+          <div class="check-grid" id="characterGrid">
+            <!-- generated -->
+          </div>
+        </fieldset>
+
+        <div class="section-divider"></div>
+
+        <div class="severity-wrap">
+          <div class="severity-top">
+            <div>
+              <div class="severity-value" id="severityVal">0</div>
+              <div class="severity-desc" id="severityDesc">No discomfort reported</div>
+            </div>
+          </div>
+          <input type="range" min="0" max="10" value="0" id="severitySlider" oninput="onSeverity()">
+          <div class="severity-scale"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="field-grid">
+          <div class="field">
+            <label>Aggravating factors</label>
+            <textarea id="f-agg" style="min-height:56px" placeholder="e.g. Worse on exertion"></textarea>
+          </div>
+          <div class="field">
+            <label>Relieving factors</label>
+            <textarea id="f-rel" style="min-height:56px" placeholder="e.g. Improves with rest"></textarea>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <fieldset>
+          <legend>Associated symptoms</legend>
+          <div class="check-grid" id="assocGrid"></div>
+        </fieldset>
+      </section>
+
+      <!-- STEP 3 — PAST HISTORY -->
+      <section class="panel" id="panel-3">
+        <div class="panel-head">
+          <div class="eyebrow">03 · BACKGROUND</div>
+          <h3>Past medical &amp; medication history</h3>
+          <p>Known conditions, prior surgery, and everything the patient currently takes.</p>
+        </div>
+
+        <fieldset>
+          <legend>Past medical history</legend>
+          <div class="check-grid" id="pmhGrid"></div>
+        </fieldset>
+
+        <div class="section-divider"></div>
+
+        <div class="field">
+          <label>Past surgical history</label>
+          <textarea id="f-surgical" placeholder="Procedure, year, notes"></textarea>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <fieldset>
+          <legend>Current medications</legend>
+          <table class="dyn-table" id="medTable">
+            <thead><tr><th style="width:38%">Medication</th><th style="width:22%">Dose</th><th style="width:28%">Frequency</th><th></th></tr></thead>
+            <tbody id="medRows"></tbody>
+          </table>
+          <button class="add-row-btn" onclick="addMedRow()">+ Add medication</button>
+        </fieldset>
+
+        <div class="section-divider"></div>
+
+        <div class="field">
+          <label>Known allergies</label>
+          <div class="tag-input-wrap" id="allergyWrap">
+            <input type="text" id="allergyInput" placeholder="Type an allergen and press Enter" onkeydown="onAllergyKey(event)">
+          </div>
+          <div class="hint">Include drug, food, and environmental allergies.</div>
+        </div>
+      </section>
+
+      <!-- STEP 4 — FAMILY & SOCIAL -->
+      <section class="panel" id="panel-4">
+        <div class="panel-head">
+          <div class="eyebrow">04 · CONTEXT</div>
+          <h3>Family &amp; social history</h3>
+          <p>Hereditary risk factors and lifestyle context that shape the differential.</p>
+        </div>
+
+        <fieldset>
+          <legend>Family history of</legend>
+          <div class="check-grid" id="famGrid"></div>
+        </fieldset>
+
+        <div class="section-divider"></div>
+
+        <div class="field-grid cols-3">
+          <div class="field">
+            <label>Smoking status</label>
+            <select id="f-smoke"><option>Never</option><option>Former</option><option>Current</option></select>
+          </div>
+          <div class="field">
+            <label>Alcohol use</label>
+            <select id="f-alcohol"><option>None</option><option>Occasional</option><option>Regular</option></select>
+          </div>
+          <div class="field">
+            <label>Diet</label>
+            <select id="f-diet"><option>Mixed</option><option>Vegetarian</option><option>Vegan</option></select>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="field">
+          <label>Occupational / environmental exposure</label>
+          <textarea id="f-exposure" style="min-height:56px" placeholder="e.g. Dust, chemical fumes, prolonged standing"></textarea>
+        </div>
+      </section>
+
+      <!-- STEP 5 — VITALS & EXAM -->
+      <section class="panel" id="panel-5">
+        <div class="panel-head">
+          <div class="eyebrow">05 · EXAMINATION</div>
+          <h3>Vitals &amp; physical examination</h3>
+          <p>Objective findings. BMI and the pulse trace update live as you type.</p>
+        </div>
+
+        <div class="vitals-panel">
+          <div>
+            <div class="field-grid cols-3">
+              <div class="field">
+                <label>Blood pressure (mmHg)</label>
+                <div class="inline-two">
+                  <input type="number" id="f-bp-sys" placeholder="120" oninput="onVitals()">
+                  <input type="number" id="f-bp-dia" placeholder="80" oninput="onVitals()" style="width:70px">
+                </div>
+              </div>
+              <div class="field">
+                <label>Heart rate (bpm)</label>
+                <input type="number" id="f-hr" placeholder="72" oninput="onVitals()">
+              </div>
+              <div class="field">
+                <label>Resp. rate (/min)</label>
+                <input type="number" id="f-rr" placeholder="16">
+              </div>
+              <div class="field">
+                <label>Temperature (°F)</label>
+                <input type="number" step="0.1" id="f-temp" placeholder="98.6">
+              </div>
+              <div class="field">
+                <label>SpO₂ (%)</label>
+                <input type="number" id="f-spo2" placeholder="98">
+              </div>
+              <div class="field">
+                <label>Height (cm)</label>
+                <input type="number" id="f-height" placeholder="165" oninput="onVitals()">
+              </div>
+              <div class="field">
+                <label>Weight (kg)</label>
+                <input type="number" id="f-weight" placeholder="60" oninput="onVitals()">
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:14px;">
+            <div class="pulse-card">
+              <div class="pc-label">PULSE TRACE</div>
+              <div class="pc-value" id="pulseValue">— <small>bpm</small></div>
+              <svg class="pulse-svg" viewBox="0 0 300 44" preserveAspectRatio="none">
+                <path id="pulsePath" d="M0,22 L300,22" />
+              </svg>
+            </div>
+            <div class="bmi-card">
+              <div class="bmi-top">
+                <div>
+                  <div class="hint">BODY MASS INDEX</div>
+                  <div class="bmi-value" id="bmiValue">—</div>
+                </div>
+                <div class="bmi-badge" id="bmiBadge">Awaiting data</div>
+              </div>
+              <div class="bmi-bar"><div class="bmi-marker" id="bmiMarker" style="left:0%"></div></div>
+              <div class="bmi-scale-labels"><span>15</span><span>18.5</span><span>25</span><span>30</span><span>40</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <div class="field-grid">
+          <div class="field span-2">
+            <label>General examination</label>
+            <textarea id="f-genexam" placeholder="Build, pallor, icterus, cyanosis, clubbing, lymphadenopathy, edema"></textarea>
+          </div>
+          <div class="field">
+            <label>CVS</label>
+            <textarea id="f-cvs" style="min-height:56px" placeholder="S1 S2 heard, no murmurs"></textarea>
+          </div>
+          <div class="field">
+            <label>Respiratory system</label>
+            <textarea id="f-rs" style="min-height:56px" placeholder="Bilateral air entry equal, no added sounds"></textarea>
+          </div>
+          <div class="field">
+            <label>Per abdomen</label>
+            <textarea id="f-pa" style="min-height:56px" placeholder="Soft, non-tender, no organomegaly"></textarea>
+          </div>
+          <div class="field">
+            <label>CNS</label>
+            <textarea id="f-cns" style="min-height:56px" placeholder="Conscious, oriented, no focal deficit"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 6 — ASSESSMENT & PLAN -->
+      <section class="panel" id="panel-6">
+        <div class="panel-head">
+          <div class="eyebrow">06 · CLINICAL DECISION</div>
+          <h3>Assessment &amp; plan</h3>
+          <p>Working diagnosis, what to rule out, and the plan of action.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field span-2">
+            <label>Provisional diagnosis <span class="req">*</span></label>
+            <input type="text" id="f-diagnosis" placeholder="e.g. Community-acquired pneumonia" oninput="onDemoChange()">
+          </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <fieldset>
+          <legend>Differential diagnoses</legend>
+          <table class="dyn-table" id="ddxTable">
+            <thead><tr><th>Condition to rule out</th><th></th></tr></thead>
+            <tbody id="ddxRows"></tbody>
+          </table>
+          <button class="add-row-btn" onclick="addDdxRow()">+ Add differential</button>
+        </fieldset>
+
+        <div class="section-divider"></div>
+
+        <fieldset>
+          <legend>Investigations ordered</legend>
+          <div class="check-grid" id="investGrid"></div>
+        </fieldset>
+
+        <div class="section-divider"></div>
+
+        <div class="field-grid">
+          <div class="field span-2">
+            <label>Treatment plan</label>
+            <textarea id="f-plan" placeholder="Medications, dosage, non-pharmacological advice"></textarea>
+          </div>
+          <div class="field">
+            <label>Follow-up date</label>
+            <input type="date" id="f-followup">
+          </div>
+          <div class="field">
+            <label>Additional notes</label>
+            <input type="text" id="f-notes" placeholder="Optional">
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP 7 — REVIEW -->
+      <section class="panel" id="panel-7">
+        <div class="panel-head">
+          <div class="eyebrow">07 · REVIEW</div>
+          <h3>Case summary</h3>
+          <p>Everything recorded, laid out as a printable case sheet.</p>
+        </div>
+
+        <div class="completion-banner">
+          <svg class="cb-ring" width="40" height="40" viewBox="0 0 40 40">
+            <circle cx="20" cy="20" r="17" stroke="#BFE0DC" stroke-width="4" fill="none"/>
+            <circle id="cbRingFill" cx="20" cy="20" r="17" stroke="#0E5F5C" stroke-width="4" fill="none"
+              stroke-dasharray="106.8" stroke-dashoffset="106.8" stroke-linecap="round" transform="rotate(-90 20 20)"/>
+          </svg>
+          <div class="cb-text">
+            <b id="cbPct">0% complete</b>
+            <span>Review each section before printing or exporting.</span>
+          </div>
+        </div>
+
+        <div class="summary-sheet" id="summarySheet">
+          <!-- populated by JS -->
+        </div>
+      </section>
+
+    </div>
+
+    <div class="footer-nav">
+      <div class="footer-left">
+        <button class="btn btn-ghost" id="btnBack" onclick="goStep(currentStep-1)">← Back</button>
+      </div>
+      <div class="footer-right">
+        <button class="btn btn-text" onclick="saveDraft()">Save draft</button>
+        <button class="btn btn-primary" id="btnNext" onclick="goStep(currentStep+1)">Continue →</button>
+        <button class="btn btn-primary" id="btnPrint" style="display:none" onclick="window.print()">🖨 Print case sheet</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ============ STATIC OPTIONS ============ */
+const CHARACTER_OPTS = ["Sharp","Dull aching","Burning","Throbbing","Cramping","Radiating","Colicky","Constant"];
+const ASSOC_OPTS = ["Fever","Nausea","Vomiting","Weight loss","Night sweats","Fatigue","Loss of appetite","Headache","Dizziness","Shortness of breath","Cough","Diarrhea"];
+const PMH_OPTS = ["Diabetes mellitus","Hypertension","Asthma","Tuberculosis","Heart disease","Thyroid disorder","Epilepsy","Kidney disease"];
+const FAM_OPTS = ["Diabetes","Hypertension","Heart disease","Cancer","Tuberculosis","Stroke","Asthma","Mental illness"];
+const INVEST_OPTS = ["CBC","Blood sugar","Renal function","Liver function","Chest X-ray","ECG","Urine routine","Ultrasound"];
+
+const STEP_META = [
+  {title:"Patient demographics", sub:"Identity"},
+  {title:"Chief complaint & HPI", sub:"Presenting complaint"},
+  {title:"Past & medication history", sub:"Background"},
+  {title:"Family & social history", sub:"Context"},
+  {title:"Vitals & examination", sub:"Objective findings"},
+  {title:"Assessment & plan", sub:"Clinical decision"},
+  {title:"Review", sub:"Case summary"},
+];
+
+let currentStep = 1;
+let allergies = [];
+let medRowCount = 0;
+let ddxRowCount = 0;
+const caseId = "AN-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random()*9000);
+
+/* ============ BUILD CHECK GRIDS ============ */
+function buildCheckGrid(containerId, options, namePrefix){
+  const el = document.getElementById(containerId);
+  el.innerHTML = options.map((opt,i) => `
+    <label class="check-item" id="${namePrefix}-item-${i}">
+      <input type="checkbox" value="${opt}" onchange="onCheckToggle('${namePrefix}-item-${i}')">
+      <span>${opt}</span>
+    </label>`).join("");
+}
+buildCheckGrid("characterGrid", CHARACTER_OPTS, "char");
+buildCheckGrid("assocGrid", ASSOC_OPTS, "assoc");
+buildCheckGrid("pmhGrid", PMH_OPTS, "pmh");
+buildCheckGrid("famGrid", FAM_OPTS, "fam");
+buildCheckGrid("investGrid", INVEST_OPTS, "invest");
+
+function onCheckToggle(itemId){
+  const item = document.getElementById(itemId);
+  const box = item.querySelector('input');
+  item.classList.toggle('checked', box.checked);
+  updateProgress();
+}
+
+/* ============ SIDEBAR STEP NAV ============ */
+function buildStepsNav(){
+  const nav = document.getElementById('stepsNav');
+  nav.innerHTML = STEP_META.map((s,i) => {
+    const n = i+1;
+    return `<div class="step-item" id="nav-step-${n}" onclick="goStep(${n})">
+      <div class="step-num">${n}</div>
+      <div class="step-text"><div class="step-title">${s.title}</div><div class="step-sub">${s.sub}</div></div>
+    </div>`;
+  }).join("");
+}
+buildStepsNav();
+
+function goStep(n){
+  if(n < 1) n = 1;
+  if(n > 7) n = 7;
+  currentStep = n;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-'+n).classList.add('active');
+  document.querySelectorAll('.step-item').forEach((el,i) => {
+    el.classList.toggle('active', i === n-1);
+    if(i < n-1) el.classList.add('done');
+  });
+  document.getElementById('stepEyebrow').textContent = `STEP ${n} OF 7`;
+  document.getElementById('stepHeading').textContent = STEP_META[n-1].title;
+  document.getElementById('btnBack').style.visibility = n===1 ? 'hidden' : 'visible';
+  document.getElementById('btnNext').style.display = n===7 ? 'none' : 'inline-flex';
+  document.getElementById('btnPrint').style.display = n===7 ? 'inline-flex' : 'none';
+  if(n===7) renderSummary();
+  window.scrollTo({top:0, behavior:'smooth'});
+  updateProgress();
+}
+
+/* ============ DEMOGRAPHICS / CHIP ============ */
+function onDemoChange(){
+  const name = document.getElementById('f-name').value.trim();
+  const age = document.getElementById('f-age').value;
+  const sex = document.getElementById('f-sex').value;
+  document.getElementById('chipName').textContent = name || "Untitled case";
+  document.getElementById('chipAge').textContent = "Age " + (age || "—");
+  document.getElementById('chipSex').textContent = sex || "Sex —";
+  updateProgress();
+}
+document.getElementById('f-id').value = caseId;
+document.getElementById('caseIdBadge').textContent = "CASE #" + caseId;
+const todayISO = new Date().toISOString().slice(0,10);
+document.getElementById('f-date').value = todayISO;
+document.getElementById('metaDate').textContent = new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+document.getElementById('f-date').addEventListener('change', e => {
+  document.getElementById('metaDate').textContent = new Date(e.target.value).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+});
+
+/* ============ SEVERITY SLIDER ============ */
+const SEV_LABELS = ["No discomfort reported","Minimal, barely noticeable","Mild, noticeable but not limiting","Mild-moderate, occasionally distracting","Moderate, interferes with tasks","Moderate, hard to ignore","Moderately severe, limits activity","Severe, dominates attention","Severe, unable to do usual activity","Very severe, unbearable","Worst pain imaginable"];
+function onSeverity(){
+  const v = document.getElementById('severitySlider').value;
+  document.getElementById('severityVal').textContent = v;
+  document.getElementById('severityDesc').textContent = SEV_LABELS[v];
+  const hue = 145 - (v/10)*145; // green to red
+  document.getElementById('severityVal').style.color = `hsl(${hue}, 55%, 38%)`;
+  updateProgress();
+}
+
+/* ============ MEDICATION ROWS ============ */
+function addMedRow(){
+  medRowCount++;
+  const id = 'med-'+medRowCount;
+  const tr = document.createElement('tr');
+  tr.id = id;
+  tr.innerHTML = `
+    <td><input type="text" placeholder="e.g. Metformin"></td>
+    <td><input type="text" placeholder="500 mg"></td>
+    <td><input type="text" placeholder="Twice daily"></td>
+    <td><button class="row-remove" onclick="document.getElementById('${id}').remove(); updateProgress();">✕</button></td>`;
+  document.getElementById('medRows').appendChild(tr);
+  updateProgress();
+}
+addMedRow();
+
+/* ============ DIFFERENTIAL DX ROWS ============ */
+function addDdxRow(){
+  ddxRowCount++;
+  const id = 'ddx-'+ddxRowCount;
+  const tr = document.createElement('tr');
+  tr.id = id;
+  tr.innerHTML = `
+    <td><input type="text" placeholder="e.g. Bronchitis"></td>
+    <td><button class="row-remove" onclick="document.getElementById('${id}').remove(); updateProgress();">✕</button></td>`;
+  document.getElementById('ddxRows').appendChild(tr);
+  updateProgress();
+}
+addDdxRow();
+
+/* ============ ALLERGY TAGS ============ */
+function onAllergyKey(e){
+  if(e.key === 'Enter' && e.target.value.trim()){
+    e.preventDefault();
+    allergies.push(e.target.value.trim());
+    e.target.value = '';
+    renderAllergies();
+    updateProgress();
+  }
+}
+function removeAllergy(i){ allergies.splice(i,1); renderAllergies(); updateProgress(); }
+function renderAllergies(){
+  const wrap = document.getElementById('allergyWrap');
+  const input = document.getElementById('allergyInput');
+  wrap.querySelectorAll('.tag').forEach(t => t.remove());
+  allergies.forEach((a,i) => {
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.innerHTML = `${a} <button onclick="removeAllergy(${i})">✕</button>`;
+    wrap.insertBefore(tag, input);
+  });
+}
+
+/* ============ VITALS: PULSE + BMI ============ */
+let pulseAnimId = null, pulseSpeed = 0;
+function onVitals(){
+  const hr = parseFloat(document.getElementById('f-hr').value);
+  document.getElementById('pulseValue').innerHTML = (hr ? hr : "—") + " <small>bpm</small>";
+  pulseSpeed = hr && hr > 0 ? hr : 0;
+
+  const h = parseFloat(document.getElementById('f-height').value);
+  const w = parseFloat(document.getElementById('f-weight').value);
+  const bmiValueEl = document.getElementById('bmiValue');
+  const bmiBadge = document.getElementById('bmiBadge');
+  const bmiMarker = document.getElementById('bmiMarker');
+  if(h > 0 && w > 0){
+    const bmi = w / ((h/100)*(h/100));
+    bmiValueEl.textContent = bmi.toFixed(1);
+    let cat = 'normal', label = 'Normal range';
+    if(bmi < 18.5){ cat='under'; label='Underweight'; }
+    else if(bmi < 25){ cat='normal'; label='Normal range'; }
+    else if(bmi < 30){ cat='over'; label='Overweight'; }
+    else { cat='obese'; label='Obesity range'; }
+    bmiBadge.className = 'bmi-badge ' + cat;
+    bmiBadge.textContent = label;
+    const pct = Math.min(100, Math.max(0, ((bmi-15)/(40-15))*100));
+    bmiMarker.style.left = pct + '%';
+  } else {
+    bmiValueEl.textContent = '—';
+    bmiBadge.className = 'bmi-badge';
+    bmiBadge.textContent = 'Awaiting data';
+    bmiMarker.style.left = '0%';
+  }
+  updateProgress();
+}
+
+function drawPulseFrame(){
+  const path = document.getElementById('pulsePath');
+  const t = Date.now()/1000;
+  const speed = pulseSpeed > 0 ? pulseSpeed : 8;
+  const cycles = 3;
+  let d = "M0,22 ";
+  const w = 300, mid = 22;
+  for(let x=0; x<=w; x+=2){
+    const phase = ((x/w)*cycles*2*Math.PI) + t*(speed/9);
+    const p = phase % (2*Math.PI);
+    let y = mid;
+    if(pulseSpeed > 0){
+      if(p > 2.8 && p < 3.4) y = mid - 16;
+      else if(p >= 3.4 && p < 3.6) y = mid + 8;
+      else y = mid + Math.sin(phase)*1.2;
+    } else {
+      y = mid + Math.sin(x/18)*1.5;
+    }
+    d += `L${x},${y.toFixed(1)} `;
+  }
+  path.setAttribute('d', d);
+  pulseAnimId = requestAnimationFrame(drawPulseFrame);
+}
+drawPulseFrame();
+
+/* ============ PROGRESS TRACKING ============ */
+function fieldFilled(id){
+  const el = document.getElementById(id);
+  return el && el.value && el.value.trim().length > 0;
+}
+function updateProgress(){
+  const required = ['f-name','f-age','f-sex','f-cc','f-diagnosis'];
+  let filled = 0;
+  required.forEach(id => { if(fieldFilled(id)) filled++; });
+  const anyChecked = document.querySelectorAll('.check-item.checked').length > 0 ? 1 : 0;
+  const vitalsFilled = (fieldFilled('f-hr') || fieldFilled('f-bp-sys')) ? 1 : 0;
+  const total = required.length + 2;
+  const done = filled + anyChecked + vitalsFilled;
+  const pct = Math.round((done/total)*100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent = pct + '%';
+  document.getElementById('cbPct').textContent = pct + '% complete';
+  const ring = document.getElementById('cbRingFill');
+  const circumference = 106.8;
+  ring.style.strokeDashoffset = circumference - (circumference*pct/100);
+}
+
+/* ============ SAVE DRAFT TOAST ============ */
+function saveDraft(){
+  const toast = document.getElementById('toast');
+  toast.textContent = '✓ Draft saved for this session';
+  toast.classList.add('show');
+  setTimeout(()=> toast.classList.remove('show'), 2400);
+}
+
+/* ============ SUMMARY / REVIEW ============ */
+function val(id){ const el = document.getElementById(id); return el ? el.value : ''; }
+function checkedList(prefix, options){
+  const out = [];
+  options.forEach((opt,i) => {
+    const box = document.querySelector(`#${prefix}-item-${i} input`);
+    if(box && box.checked) out.push(opt);
+  });
+  return out;
+}
+function tagsHTML(list){
+  if(!list.length) return '<div class="v empty"></div>';
+  return `<div class="sum-tags">${list.map(x=>`<span>${x}</span>`).join('')}</div>`;
+}
+function medListHTML(){
+  const rows = document.querySelectorAll('#medRows tr');
+  if(!rows.length) return '<div class="v empty"></div>';
+  const items = Array.from(rows).map(r => {
+    const inputs = r.querySelectorAll('input');
+    const name = inputs[0].value, dose = inputs[1].value, freq = inputs[2].value;
+    if(!name && !dose && !freq) return null;
+    return `${name || '—'} · ${dose || '—'} · ${freq || '—'}`;
+  }).filter(Boolean);
+  if(!items.length) return '<div class="v empty"></div>';
+  return `<div class="sum-text">${items.join('\\n')}</div>`;
+}
+function ddxListHTML(){
+  const rows = document.querySelectorAll('#ddxRows tr');
+  const items = Array.from(rows).map(r => r.querySelector('input').value).filter(Boolean);
+  if(!items.length) return '<div class="v empty"></div>';
+  return `<div class="sum-tags">${items.map(x=>`<span>${x}</span>`).join('')}</div>`;
+}
+
+function renderSummary(){
+  const sheet = document.getElementById('summarySheet');
+  const hr = val('f-hr'), sys = val('f-bp-sys'), dia = val('f-bp-dia');
+  const bmiText = document.getElementById('bmiValue').textContent;
+
+  sheet.innerHTML = `
+    <h4>Patient details</h4>
+    <div class="sum-grid">
+      <div class="sum-item"><div class="k">NAME</div><div class="v ${val('f-name')?'':'empty'}">${val('f-name')}</div></div>
+      <div class="sum-item"><div class="k">AGE / SEX</div><div class="v">${val('f-age')||'—'} / ${val('f-sex')||'—'}</div></div>
+      <div class="sum-item"><div class="k">PATIENT ID</div><div class="v">${val('f-id')}</div></div>
+      <div class="sum-item"><div class="k">VISIT DATE</div><div class="v">${val('f-date')}</div></div>
+      <div class="sum-item"><div class="k">CONTACT</div><div class="v ${val('f-contact')?'':'empty'}">${val('f-contact')}</div></div>
+      <div class="sum-item"><div class="k">OCCUPATION</div><div class="v ${val('f-occupation')?'':'empty'}">${val('f-occupation')}</div></div>
+    </div>
+
+    <h4>Chief complaint &amp; HPI</h4>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">CHIEF COMPLAINT</div><div class="sum-text ${val('f-cc')?'':'empty'}">${val('f-cc')}</div></div>
+    <div class="sum-grid" style="margin-bottom:10px;">
+      <div class="sum-item"><div class="k">ONSET</div><div class="v ${val('f-onset')?'':'empty'}">${val('f-onset')}</div></div>
+      <div class="sum-item"><div class="k">DURATION</div><div class="v">${val('f-duration') ? val('f-duration')+' '+val('f-duration-unit') : ''}</div></div>
+      <div class="sum-item"><div class="k">SEVERITY</div><div class="v">${document.getElementById('severitySlider').value} / 10</div></div>
+    </div>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">CHARACTER</div>${tagsHTML(checkedList('char', CHARACTER_OPTS))}</div>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">ASSOCIATED SYMPTOMS</div>${tagsHTML(checkedList('assoc', ASSOC_OPTS))}</div>
+    <div class="sum-grid">
+      <div class="sum-item"><div class="k">AGGRAVATING FACTORS</div><div class="v ${val('f-agg')?'':'empty'}">${val('f-agg')}</div></div>
+      <div class="sum-item"><div class="k">RELIEVING FACTORS</div><div class="v ${val('f-rel')?'':'empty'}">${val('f-rel')}</div></div>
+    </div>
+
+    <h4>Past &amp; medication history</h4>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">PAST MEDICAL HISTORY</div>${tagsHTML(checkedList('pmh', PMH_OPTS))}</div>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">PAST SURGICAL HISTORY</div><div class="sum-text ${val('f-surgical')?'':'empty'}">${val('f-surgical')}</div></div>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">CURRENT MEDICATIONS</div>${medListHTML()}</div>
+    <div class="sum-item"><div class="k">ALLERGIES</div>${tagsHTML(allergies)}</div>
+
+    <h4>Family &amp; social history</h4>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">FAMILY HISTORY</div>${tagsHTML(checkedList('fam', FAM_OPTS))}</div>
+    <div class="sum-grid" style="margin-bottom:10px;">
+      <div class="sum-item"><div class="k">SMOKING</div><div class="v">${val('f-smoke')}</div></div>
+      <div class="sum-item"><div class="k">ALCOHOL</div><div class="v">${val('f-alcohol')}</div></div>
+      <div class="sum-item"><div class="k">DIET</div><div class="v">${val('f-diet')}</div></div>
+    </div>
+    <div class="sum-item"><div class="k">OCCUPATIONAL / ENVIRONMENTAL EXPOSURE</div><div class="v ${val('f-exposure')?'':'empty'}">${val('f-exposure')}</div></div>
+
+    <h4>Vitals &amp; examination</h4>
+    <div class="sum-grid" style="margin-bottom:10px;">
+      <div class="sum-item"><div class="k">BLOOD PRESSURE</div><div class="v">${sys && dia ? sys+'/'+dia+' mmHg' : ''}</div></div>
+      <div class="sum-item"><div class="k">HEART RATE</div><div class="v">${hr ? hr+' bpm' : ''}</div></div>
+      <div class="sum-item"><div class="k">RESP. RATE</div><div class="v">${val('f-rr') ? val('f-rr')+' /min' : ''}</div></div>
+      <div class="sum-item"><div class="k">TEMPERATURE</div><div class="v">${val('f-temp') ? val('f-temp')+' °F' : ''}</div></div>
+      <div class="sum-item"><div class="k">SpO₂</div><div class="v">${val('f-spo2') ? val('f-spo2')+' %' : ''}</div></div>
+      <div class="sum-item"><div class="k">BMI</div><div class="v">${bmiText !== '—' ? bmiText : ''}</div></div>
+    </div>
+    <div class="sum-grid">
+      <div class="sum-item"><div class="k">GENERAL EXAM</div><div class="v ${val('f-genexam')?'':'empty'}">${val('f-genexam')}</div></div>
+      <div class="sum-item"><div class="k">CVS</div><div class="v ${val('f-cvs')?'':'empty'}">${val('f-cvs')}</div></div>
+      <div class="sum-item"><div class="k">RESPIRATORY</div><div class="v ${val('f-rs')?'':'empty'}">${val('f-rs')}</div></div>
+      <div class="sum-item"><div class="k">PER ABDOMEN</div><div class="v ${val('f-pa')?'':'empty'}">${val('f-pa')}</div></div>
+      <div class="sum-item"><div class="k">CNS</div><div class="v ${val('f-cns')?'':'empty'}">${val('f-cns')}</div></div>
+    </div>
+
+    <h4>Assessment &amp; plan</h4>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">PROVISIONAL DIAGNOSIS</div><div class="sum-text ${val('f-diagnosis')?'':'empty'}">${val('f-diagnosis')}</div></div>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">DIFFERENTIAL DIAGNOSES</div>${ddxListHTML()}</div>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">INVESTIGATIONS ORDERED</div>${tagsHTML(checkedList('invest', INVEST_OPTS))}</div>
+    <div class="sum-item" style="margin-bottom:10px;"><div class="k">TREATMENT PLAN</div><div class="sum-text ${val('f-plan')?'':'empty'}">${val('f-plan')}</div></div>
+    <div class="sum-grid">
+      <div class="sum-item"><div class="k">FOLLOW-UP DATE</div><div class="v ${val('f-followup')?'':'empty'}">${val('f-followup')}</div></div>
+      <div class="sum-item"><div class="k">NOTES</div><div class="v ${val('f-notes')?'':'empty'}">${val('f-notes')}</div></div>
+    </div>
+  `;
+}
+
+/* ============ PARTICLE MEDICAL BACKGROUND ============ */
+(function(){
+  const canvas = document.getElementById('particleCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, dpr;
+
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W*dpr; canvas.height = H*dpr;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const TYPES = ['cross','heart','pulse','drop','dna'];
+  const COUNT = Math.max(10, Math.floor((W*H)/95000));
+  const particles = [];
+  for(let i=0;i<COUNT;i++){
+    particles.push({
+      x: Math.random()*W, y: Math.random()*H,
+      vx: (Math.random()-0.5)*0.14, vy: (Math.random()-0.5)*0.10 - 0.03,
+      size: 14 + Math.random()*20,
+      rot: Math.random()*Math.PI*2, vr: (Math.random()-0.5)*0.002,
+      type: TYPES[Math.floor(Math.random()*TYPES.length)],
+      alpha: 0.05 + Math.random()*0.08
+    });
+  }
+
+  function drawCross(s){
+    ctx.beginPath();
+    const a = s*0.32;
+    ctx.moveTo(-a, -s/2); ctx.lineTo(a, -s/2); ctx.lineTo(a, -a);
+    ctx.lineTo(s/2, -a); ctx.lineTo(s/2, a); ctx.lineTo(a, a);
+    ctx.lineTo(a, s/2); ctx.lineTo(-a, s/2); ctx.lineTo(-a, a);
+    ctx.lineTo(-s/2, a); ctx.lineTo(-s/2, -a); ctx.lineTo(-a, -a);
+    ctx.closePath(); ctx.fill();
+  }
+  function drawHeart(s){
+    ctx.beginPath();
+    const k = s/2;
+    ctx.moveTo(0, k*0.35);
+    ctx.bezierCurveTo(-k, -k*0.6, -k*1.3, k*0.5, 0, k*1.1);
+    ctx.bezierCurveTo(k*1.3, k*0.5, k, -k*0.6, 0, k*0.35);
+    ctx.fill();
+  }
+  function drawPulse(s){
+    ctx.beginPath();
+    ctx.moveTo(-s/2, 0);
+    ctx.lineTo(-s*0.18, 0);
+    ctx.lineTo(-s*0.08, -s*0.4);
+    ctx.lineTo(s*0.06, s*0.4);
+    ctx.lineTo(s*0.18, 0);
+    ctx.lineTo(s/2, 0);
+    ctx.lineWidth = s*0.09;
+    ctx.stroke();
+  }
+  function drawDrop(s){
+    ctx.beginPath();
+    ctx.moveTo(0,-s/2);
+    ctx.quadraticCurveTo(s*0.42, s*0.15, 0, s/2);
+    ctx.quadraticCurveTo(-s*0.42, s*0.15, 0, -s/2);
+    ctx.fill();
+  }
+  function drawDna(s){
+    ctx.lineWidth = s*0.07;
+    for(let i=-1;i<=1;i++){
+      ctx.beginPath();
+      ctx.moveTo(Math.sin(i)*s*0.3, -s/2);
+      ctx.bezierCurveTo(s*0.4, -s*0.16, -s*0.4, s*0.16, 0, s/2);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(-s*0.4, -s*0.16); ctx.lineTo(s*0.4, -s*0.16);
+    ctx.moveTo(-s*0.28, s*0.16); ctx.lineTo(s*0.28, s*0.16);
+    ctx.lineWidth = s*0.05;
+    ctx.stroke();
+  }
+
+  const drawers = {cross:drawCross, heart:drawHeart, pulse:drawPulse, drop:drawDrop, dna:drawDna};
+
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if(p.x < -40) p.x = W+40; if(p.x > W+40) p.x = -40;
+      if(p.y < -40) p.y = H+40; if(p.y > H+40) p.y = -40;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = '#0E5F5C';
+      ctx.strokeStyle = '#0E5F5C';
+      drawers[p.type](p.size);
+      ctx.restore();
+    });
+    if(!reduceMotion) requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+/* ============ INIT ============ */
+onSeverity();
+onVitals();
+updateProgress();
+</script>
+</body>
+</html>
